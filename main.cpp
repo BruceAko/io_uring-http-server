@@ -290,11 +290,7 @@ int main(int argc, char *argv[])
             users[req->client_socket].m_read_idx += cqe->res;
             printf("读到%d字节数据\n", cqe->res);
             pool->append(users + req->client_socket);
-            // while (users[req->client_socket].writable == 0)
-            //{
-            // }
             // io_uring_submit(&ring);
-            // users[req->client_socket].writable = 0;
             // add_read_request(req->client_socket);
             // free(req->iov[0].iov_base);
             // users[req->client_socket].write();

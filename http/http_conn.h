@@ -112,7 +112,6 @@ public:
     void init();
     int bytes_to_send;
     int bytes_have_send;
-    int writable;
 
 private:
     int m_sockfd;

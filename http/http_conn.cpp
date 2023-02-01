@@ -561,9 +561,6 @@ void http_conn::unmap()
 
 bool http_conn::write()
 {
-    // while (!writable)
-    // {
-    // }
     // int temp = 0;
 
     if (bytes_to_send == 0)
@@ -625,7 +622,6 @@ bool http_conn::write()
     {
         // unmap();
         modfd(m_epollfd, m_sockfd, EPOLLIN);
-        // writable = 0;
     }
 }
 
@@ -749,9 +745,6 @@ void http_conn::process()
     {
         close_conn();
     }
-    // writable = 1;
-    // write();
     write_queue.push(m_sockfd);
     // modfd(m_epollfd, m_sockfd, EPOLLOUT);
-    // writable = 1;
 }
