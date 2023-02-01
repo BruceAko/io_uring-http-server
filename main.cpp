@@ -7,7 +7,6 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <cassert>
-#include <sys/epoll.h>
 
 #include "./lock/locker.h"
 #include "./threadpool/threadpool.h"
@@ -32,6 +31,7 @@
 extern int addfd(int epollfd, int fd, bool one_shot);
 extern int remove(int epollfd, int fd);
 extern int setnonblocking(int fd);
+
 extern Queue<int> write_queue;
 
 int ringque = 0;
@@ -81,7 +81,6 @@ void cb_func(client_data *user_data)
     close(user_data->sockfd);
     http_conn::m_user_count--;
     LOG_INFO("close fd %d", user_data->sockfd);
-    Log::get_instance()->flush();
 }
 
 void show_error(int connfd, const char *info)
@@ -456,7 +455,6 @@ int main(int argc, char *argv[])
         //                 if (myret = users[sockfd].read_once())
         //                 {
         //                     LOG_INFO("deal with the client(%s)", inet_ntoa(users[sockfd].get_address()->sin_addr));
-        //                     Log::get_instance()->flush();
         //                     // 若监测到读事件，将该事件放入请求队列
         //                     pool->append(users + sockfd);
 
@@ -467,7 +465,6 @@ int main(int argc, char *argv[])
         //                         time_t cur = time(NULL);
         //                         timer->expire = cur + 3 * TIMESLOT;
         //                         LOG_INFO("%s", "adjust timer once");
-        //                         Log::get_instance()->flush();
         //                         timer_lst.adjust_timer(timer);
         //                     }
         //                 }
@@ -489,7 +486,6 @@ int main(int argc, char *argv[])
         //                 if (myret = users[sockfd].write())
         //                 {
         //                     LOG_INFO("send data to the client(%s)", inet_ntoa(users[sockfd].get_address()->sin_addr));
-        //                     Log::get_instance()->flush();
 
         //                     // 若有数据传输，则将定时器往后延迟3个单位
         //                     // 并对新的定时器在链表上的位置进行调整
@@ -498,7 +494,6 @@ int main(int argc, char *argv[])
         //                         time_t cur = time(NULL);
         //                         timer->expire = cur + 3 * TIMESLOT;
         //                         LOG_INFO("%s", "adjust timer once");
-        //                         Log::get_instance()->flush();
         //                         timer_lst.adjust_timer(timer);
         //                     }
         //                 }

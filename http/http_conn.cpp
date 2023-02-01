@@ -356,7 +356,6 @@ http_conn::HTTP_CODE http_conn::parse_headers(char *text)
     {
         // printf("oop!unknow header: %s\n",text);
         LOG_INFO("oop!unknow header: %s", text);
-        Log::get_instance()->flush();
     }
     return NO_REQUEST;
 }
@@ -386,7 +385,6 @@ http_conn::HTTP_CODE http_conn::process_read()
         text = get_line();
         m_start_line = m_checked_idx;
         LOG_INFO("%s", text);
-        Log::get_instance()->flush();
         switch (m_check_state)
         {
         case CHECK_STATE_REQUESTLINE:
@@ -639,7 +637,6 @@ bool http_conn::add_response(const char *format, ...)
     m_write_idx += len;
     va_end(arg_list);
     LOG_INFO("request:%s", m_write_buf);
-    Log::get_instance()->flush();
     return true;
 }
 bool http_conn::add_status_line(int status, const char *title)

@@ -123,7 +123,6 @@ public:
         }
         // printf( "timer tick\n" );
         LOG_INFO("%s", "timer tick");
-        Log::get_instance()->flush();
         time_t cur = time(NULL);
         util_timer *tmp = head;
         while (tmp)
