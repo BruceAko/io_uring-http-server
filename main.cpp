@@ -24,9 +24,6 @@
 #define SYNLOG // 同步写日志
 // #define ASYNLOG //异步写日志
 
-// #define listenfdET //边缘触发非阻塞
-#define listenfdLT // 水平触发阻塞
-
 // 在http_conn.cpp中定义，改变链接属性
 extern int setnonblocking(int fd);
 
