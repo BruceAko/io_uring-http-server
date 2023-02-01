@@ -103,7 +103,7 @@ void addfd(int epollfd, int fd, bool one_shot)
 // 从内核时间表删除描述符
 void removefd(int epollfd, int fd)
 {
-    printf("删除fd%d\n", fd);
+    // printf("删除fd%d\n", fd);
     epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, 0);
     close(fd);
 }
@@ -131,7 +131,7 @@ int http_conn::m_epollfd = -1;
 // 关闭连接，关闭一个连接，客户总量减一
 void http_conn::close_conn(bool real_close)
 {
-    printf("real删除fd%d\n", m_sockfd);
+    // printf("real删除fd%d\n", m_sockfd);
     if (real_close && (m_sockfd != -1))
     {
         removefd(m_epollfd, m_sockfd);
@@ -143,13 +143,13 @@ void http_conn::close_conn(bool real_close)
 // 初始化连接,外部调用初始化套接字地址
 void http_conn::init(int sockfd, const sockaddr_in &addr)
 {
-    printf("初始化fd=%d\n", sockfd);
+    // printf("初始化fd=%d\n", sockfd);
     m_sockfd = sockfd;
     m_address = addr;
     int reuse = 1;
     setsockopt(m_sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
-    printf("添加fd%d\n", sockfd);
-    printf("目前fd总数%d\n", http_conn::m_user_count);
+    // printf("添加fd%d\n", sockfd);
+    // printf("目前fd总数%d\n", http_conn::m_user_count);
     // addfd(m_epollfd, sockfd, true);
     m_user_count++;
     init();
@@ -565,7 +565,7 @@ bool http_conn::write()
 
     if (bytes_to_send == 0)
     {
-        printf("#########!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+        // printf("#########!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         modfd(m_epollfd, m_sockfd, EPOLLIN);
         init();
         return true;
@@ -603,13 +603,13 @@ bool http_conn::write()
     req->event_type = EVENT_TYPE_WRITE;
     req->iovec_count = m_iv_count;
     req->client_socket = m_sockfd;
-    printf("size of m_iv_count:%d\n", sizeof(struct iovec) * m_iv_count);
+    // printf("size of m_iv_count:%d\n", sizeof(struct iovec) * m_iv_count);
     memcpy(req->iov, m_iv, sizeof(struct iovec) * m_iv_count);
     struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
 
     io_uring_prep_writev(sqe, req->client_socket, req->iov, req->iovec_count, 0);
     io_uring_sqe_set_data(sqe, req);
-    printf("线程中提交了io_uring\n");
+    // printf("线程中提交了io_uring\n");
     io_uring_submit(&ring);
 
     ringque++;

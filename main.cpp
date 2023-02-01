@@ -77,7 +77,7 @@ void cb_func(client_data *user_data)
 {
     epoll_ctl(epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0);
     assert(user_data);
-    printf("定时器删除fd%d\n", user_data->sockfd);
+    // printf("定时器删除fd%d\n", user_data->sockfd);
     close(user_data->sockfd);
     http_conn::m_user_count--;
     LOG_INFO("close fd %d", user_data->sockfd);
@@ -104,10 +104,6 @@ int add_accept_request(int server_socket, struct sockaddr_in *client_addr,
     io_uring_sqe_set_data(sqe, req);
     int ret;
     ret = io_uring_submit(&ring);
-    if (ret == 0)
-    {
-        printf("!!!!!!!!!!!!!!!!!!!!!!!!submit = 0!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-    }
     ringque++;
     return 0;
 }
@@ -212,9 +208,9 @@ int main(int argc, char *argv[])
         while (write_queue.empty() != true)
         {
             int fd = write_queue.pop();
-            printf("开始处理fd=%d的写事件\n", fd);
+            // printf("开始处理fd=%d的写事件\n", fd);
             users[fd].write();
-            printf("处理完成...\n");
+            // printf("处理完成...\n");
         }
 
         // int ret = io_uring_submit_and_wait(&ring, 1);
@@ -254,13 +250,13 @@ int main(int argc, char *argv[])
         switch (req->event_type)
         {
         case EVENT_TYPE_ACCEPT:
-            printf("####################接受新的客户端！###########################\n");
+            // printf("####################接受新的客户端！###########################\n");
             add_accept_request(listenfd, &client_addr, &client_addr_len);
             users[cqe->res].init(cqe->res, client_addr);
             // printf("第%d次accept\n", ++accept);
             // add_read_request(cqe->res);
             users[cqe->res].read_once();
-            printf("从fd%d读数据\n", cqe->res);
+            // printf("从fd%d读数据\n", cqe->res);
             free(req);
             break;
         case EVENT_TYPE_READ:
@@ -271,7 +267,7 @@ int main(int argc, char *argv[])
                 break;
             }
             users[req->client_socket].m_read_idx += cqe->res;
-            printf("读到%d字节数据\n", cqe->res);
+            // printf("读到%d字节数据\n", cqe->res);
             pool->append(users + req->client_socket);
             // io_uring_submit(&ring);
             // add_read_request(req->client_socket);
@@ -280,8 +276,8 @@ int main(int argc, char *argv[])
             break;
         case EVENT_TYPE_WRITE:
             // add_accept_request(listenfd, &client_addr, &client_addr_len, myid++);
-            printf("需要传输的字节数：%d\n", users[req->client_socket].bytes_to_send);
-            printf("传输的字节数：%d\n", cqe->res);
+            // printf("需要传输的字节数：%d\n", users[req->client_socket].bytes_to_send);
+            // printf("传输的字节数：%d\n", cqe->res);
             if (cqe->res < users[req->client_socket].bytes_to_send)
             {
                 users[req->client_socket].bytes_to_send -= cqe->res;
@@ -300,7 +296,7 @@ int main(int argc, char *argv[])
                 users[req->client_socket].unmap();
                 // users[req->client_socket].init();
                 // users[req->client_socket].read_once();
-                printf("keep alive\n");
+                // printf("keep alive\n");
                 http_conn::m_user_count--;
                 close(req->client_socket);
                 //  return true;
@@ -308,7 +304,7 @@ int main(int argc, char *argv[])
             else
             {
                 users[req->client_socket].unmap();
-                printf("not keep alive\n");
+                // printf("not keep alive\n");
                 http_conn::m_user_count--;
                 close(req->client_socket);
                 // return false;
@@ -322,11 +318,11 @@ int main(int argc, char *argv[])
         //}
         // io_uring_cq_advance(&ring, count);
         ringque -= count;
-        printf("目前io_uring队列数量： %d\n", ringque);
+        // printf("目前io_uring队列数量： %d\n", ringque);
         if (ringque > 8100)
         {
-            printf("ringque > 8100\n");
-            // exit(1);
+            // printf("ringque > 8100\n");
+            //  exit(1);
         }
         //         int number = epoll_wait(epollfd, events, MAX_EVENT_NUMBER, -1);
         //         if (number < 0 && errno != EINTR)
