@@ -72,61 +72,7 @@ int setnonblocking(int fd)
     return old_option;
 }
 
-// 将内核事件表注册读事件，ET模式，选择开启EPOLLONESHOT
-void addfd(int epollfd, int fd, bool one_shot)
-{
-    epoll_event event;
-    event.data.fd = fd;
-
-#ifdef connfdET
-    event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
-#endif
-
-#ifdef connfdLT
-    event.events = EPOLLIN | EPOLLRDHUP;
-#endif
-
-#ifdef listenfdET
-    event.events = EPOLLIN | EPOLLET | EPOLLRDHUP;
-#endif
-
-#ifdef listenfdLT
-    event.events = EPOLLIN | EPOLLRDHUP;
-#endif
-
-    if (one_shot)
-        event.events |= EPOLLONESHOT;
-    epoll_ctl(epollfd, EPOLL_CTL_ADD, fd, &event);
-    setnonblocking(fd);
-}
-
-// 从内核时间表删除描述符
-void removefd(int epollfd, int fd)
-{
-    // printf("删除fd%d\n", fd);
-    epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, 0);
-    close(fd);
-}
-
-// 将事件重置为EPOLLONESHOT
-void modfd(int epollfd, int fd, int ev)
-{
-    epoll_event event;
-    event.data.fd = fd;
-
-#ifdef connfdET
-    event.events = ev | EPOLLET | EPOLLONESHOT | EPOLLRDHUP;
-#endif
-
-#ifdef connfdLT
-    event.events = ev | EPOLLONESHOT | EPOLLRDHUP;
-#endif
-
-    epoll_ctl(epollfd, EPOLL_CTL_MOD, fd, &event);
-}
-
 int http_conn::m_user_count = 0;
-int http_conn::m_epollfd = -1;
 
 // 关闭连接，关闭一个连接，客户总量减一
 void http_conn::close_conn(bool real_close)
@@ -134,7 +80,7 @@ void http_conn::close_conn(bool real_close)
     // printf("real删除fd%d\n", m_sockfd);
     if (real_close && (m_sockfd != -1))
     {
-        removefd(m_epollfd, m_sockfd);
+        // removefd(m_epollfd, m_sockfd);
         m_sockfd = -1;
         m_user_count--;
     }
@@ -564,7 +510,7 @@ bool http_conn::write()
     if (bytes_to_send == 0)
     {
         // printf("#########!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
-        modfd(m_epollfd, m_sockfd, EPOLLIN);
+        // modfd(m_epollfd, m_sockfd, EPOLLIN);
         init();
         return true;
     }
@@ -618,7 +564,7 @@ bool http_conn::write()
     if (1)
     {
         // unmap();
-        modfd(m_epollfd, m_sockfd, EPOLLIN);
+        // modfd(m_epollfd, m_sockfd, EPOLLIN);
     }
 }
 
@@ -733,7 +679,7 @@ void http_conn::process()
     HTTP_CODE read_ret = process_read();
     if (read_ret == NO_REQUEST)
     {
-        modfd(m_epollfd, m_sockfd, EPOLLIN);
+        // modfd(m_epollfd, m_sockfd, EPOLLIN);
         return;
     }
     bool write_ret = process_write(read_ret);

@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <sys/types.h>
-#include <sys/epoll.h>
 #include <fcntl.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -103,7 +102,6 @@ private:
     bool add_blank_line();
 
 public:
-    static int m_epollfd;
     static int m_user_count;
     MYSQL *mysql;
     // static struct io_uring ring;

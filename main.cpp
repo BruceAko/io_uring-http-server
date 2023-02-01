@@ -27,9 +27,7 @@
 // #define listenfdET //边缘触发非阻塞
 #define listenfdLT // 水平触发阻塞
 
-// 这三个函数在http_conn.cpp中定义，改变链接属性
-extern int addfd(int epollfd, int fd, bool one_shot);
-extern int remove(int epollfd, int fd);
+// 在http_conn.cpp中定义，改变链接属性
 extern int setnonblocking(int fd);
 
 extern Queue<int> write_queue;
@@ -39,7 +37,6 @@ int ringque = 0;
 // 设置定时器相关参数
 static int pipefd[2];
 static sort_timer_lst timer_lst;
-static int epollfd = 0;
 
 struct io_uring ring;
 
@@ -75,7 +72,7 @@ void timer_handler()
 // 定时器回调函数，删除非活动连接在socket上的注册事件，并关闭
 void cb_func(client_data *user_data)
 {
-    epoll_ctl(epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0);
+    // epoll_ctl(epollfd, EPOLL_CTL_DEL, user_data->sockfd, 0);
     assert(user_data);
     // printf("定时器删除fd%d\n", user_data->sockfd);
     close(user_data->sockfd);
@@ -101,8 +98,7 @@ int add_accept_request(int server_socket, struct sockaddr_in *client_addr,
     // printf("add_accept_request,myid = %d", __myid);
     // req->client_socket = __myid;
     io_uring_sqe_set_data(sqe, req);
-    int ret;
-    ret = io_uring_submit(&ring);
+    io_uring_submit(&ring);
     ringque++;
     return 0;
 }
@@ -169,14 +165,6 @@ int main(int argc, char *argv[])
     ret = listen(listenfd, 10);
     assert(ret >= 0);
 
-    // 创建内核事件表
-    epoll_event events[MAX_EVENT_NUMBER];
-    // epollfd = epoll_create(5);
-    assert(epollfd != -1);
-
-    // addfd(epollfd, listenfd, false);
-    // http_conn::m_epollfd = epollfd;
-
     // 初始化ring
     io_uring_queue_init(QUEUE_DEPTH, &ring, 0);
 
@@ -188,6 +176,7 @@ int main(int argc, char *argv[])
 
     // addsig(SIGALRM, sig_handler, false);
     // addsig(SIGTERM, sig_handler, false);
+
     bool stop_server = false;
 
     // client_data *users_timer = new client_data[MAX_FD];
@@ -514,7 +503,6 @@ int main(int argc, char *argv[])
         //             timeout = false;
         //         }
     }
-    close(epollfd);
     close(listenfd);
     // close(pipefd[1]);
     // close(pipefd[0]);
