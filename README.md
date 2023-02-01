@@ -93,18 +93,24 @@ Linux下C++轻量级Web服务器。
      26 #define ASYNLOG   /异步写日志
      ```
 
-* 选择I/O复用方式或日志写入方式后，按照前述生成server，启动server，即可进行测试.
-  * 每分钟响应请求数：960132 pages/min
+* 关闭日志，按照前述生成server，启动server，每分钟响应请求数：960132 pages/min
 ![结果](test_presure/res.png)
 
 相关链接
 ------------
 
 [牛客网系列教学视频：Linux高并发服务器开发](https://www.nowcoder.com/study/live/504)
+
 [WebServer服务器项目可能会被问到的问题(一)](https://www.nowcoder.com/discuss/934904)
+
 [WebServer服务器项目可能会被问到的问题(二)](https://www.nowcoder.com/discuss/939267)
+
 [WebServer服务器项目可能会被问到的问题(三)](https://www.nowcoder.com/discuss/353159645424459776)
+
 [烂大街的WebServer分享一下](https://www.nowcoder.com/discuss/419276598265827328)
+
 [CSDN的Linux高并发Web服务器项目实战总结](https://blog.csdn.net/qq_19887221/article/details/125500256)
+
 [字节跳动分布式存储日常实习二面面经(含webserver项目)](https://www.nowcoder.com/discuss/379256223839920128)
+
 [实习总结及C++后端开发学习路线总结](https://www.nowcoder.com/discuss/353157797267316736)
