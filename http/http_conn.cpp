@@ -28,6 +28,9 @@ const char *doc_root = "/home/bruce/Source/io_uring-http-server/root";
 map<string, string> users;
 locker m_lock;
 
+extern struct io_uring ring;
+extern int ringque;
+extern int write_flag;
 void http_conn::initmysql_result(connection_pool *connPool)
 {
     // 先从连接池中取一个连接
@@ -98,6 +101,7 @@ void addfd(int epollfd, int fd, bool one_shot)
 // 从内核时间表删除描述符
 void removefd(int epollfd, int fd)
 {
+    printf("删除fd%d\n", fd);
     epoll_ctl(epollfd, EPOLL_CTL_DEL, fd, 0);
     close(fd);
 }
@@ -125,6 +129,7 @@ int http_conn::m_epollfd = -1;
 // 关闭连接，关闭一个连接，客户总量减一
 void http_conn::close_conn(bool real_close)
 {
+    printf("real删除fd%d\n", m_sockfd);
     if (real_close && (m_sockfd != -1))
     {
         removefd(m_epollfd, m_sockfd);
@@ -136,11 +141,14 @@ void http_conn::close_conn(bool real_close)
 // 初始化连接,外部调用初始化套接字地址
 void http_conn::init(int sockfd, const sockaddr_in &addr)
 {
+    printf("初始化fd=%d\n", sockfd);
     m_sockfd = sockfd;
     m_address = addr;
-    // int reuse=1;
-    // setsockopt(m_sockfd,SOL_SOCKET,SO_REUSEADDR,&reuse,sizeof(reuse));
-    addfd(m_epollfd, sockfd, true);
+    int reuse = 1;
+    setsockopt(m_sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
+    printf("添加fd%d\n", sockfd);
+    printf("目前fd总数%d\n", http_conn::m_user_count);
+    // addfd(m_epollfd, sockfd, true);
     m_user_count++;
     init();
 }
@@ -207,45 +215,58 @@ http_conn::LINE_STATUS http_conn::parse_line()
 // 非阻塞ET工作模式下，需要一次性将数据读完
 bool http_conn::read_once()
 {
-    if (m_read_idx >= READ_BUFFER_SIZE)
-    {
-        return false;
-    }
-    int bytes_read = 0;
-
-#ifdef connfdLT
-
-    bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
-
-    if (bytes_read <= 0)
-    {
-        return false;
-    }
-
-    m_read_idx += bytes_read;
-
+    struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
+    struct request *req = (struct request *)malloc(sizeof(*req) + sizeof(struct iovec));
+    req->iov[0].iov_base = m_read_buf;
+    req->iov[0].iov_len = READ_BUFFER_SIZE;
+    req->event_type = EVENT_TYPE_READ;
+    req->client_socket = m_sockfd;
+    // memset(req->iov[0].iov_base, 0, READ_SZ);
+    /* Linux kernel 5.5 has support for readv, but not for recv() or read() */
+    io_uring_prep_readv(sqe, m_sockfd, &req->iov[0], 1, 0);
+    io_uring_sqe_set_data(sqe, req);
+    io_uring_submit(&ring);
+    ringque++;
     return true;
+    //     if (m_read_idx >= READ_BUFFER_SIZE)
+    //     {
+    //         return false;
+    //     }
+    //     int bytes_read = 0;
 
-#endif
+    // #ifdef connfdLT
 
-#ifdef connfdET
-    while (true)
-    {
-        bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
-        if (bytes_read == -1)
-        {
-            if (errno == EAGAIN || errno == EWOULDBLOCK)
-                break;
-            return false;
-        }
-        else if (bytes_read == 0)
-        {
-            return false;
-        }
-        m_read_idx += bytes_read;
-    }
-    return true;
-#endif
+    //     bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
+
+    //     if (bytes_read <= 0)
+    //     {
+    //         return false;
+    //     }
+
+    //     m_read_idx += bytes_read;
+
+    //     return true;
+
+    // #endif
+
+    // #ifdef connfdET
+    //     while (true)
+    //     {
+    //         bytes_read = recv(m_sockfd, m_read_buf + m_read_idx, READ_BUFFER_SIZE - m_read_idx, 0);
+    //         if (bytes_read == -1)
+    //         {
+    //             if (errno == EAGAIN || errno == EWOULDBLOCK)
+    //                 break;
+    //             return false;
+    //         }
+    //         else if (bytes_read == 0)
+    //         {
+    //             return false;
+    //         }
+    //         m_read_idx += bytes_read;
+    //     }
+    //     return true;
+    // #endif
 }
 
 // 解析http请求行，获得请求方法，目标url及http版本号
@@ -523,6 +544,7 @@ http_conn::HTTP_CODE http_conn::do_request()
         return BAD_REQUEST;
     int fd = open(m_real_file, O_RDONLY);
     m_file_address = (char *)mmap(0, m_file_stat.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    // printf("m_file_address:%s", m_file_address);
     close(fd);
     return FILE_REQUEST;
 }
@@ -537,59 +559,71 @@ void http_conn::unmap()
 
 bool http_conn::write()
 {
-    int temp = 0;
+    // while (!writable)
+    // {
+    // }
+    // int temp = 0;
 
     if (bytes_to_send == 0)
     {
+        printf("#########!!!!!!!!!!!!!!!!!!!!!!!!!!\n");
         modfd(m_epollfd, m_sockfd, EPOLLIN);
         init();
         return true;
     }
 
-    while (1)
+    // while (1)
+    // {
+    //     temp = writev(m_sockfd, m_iv, m_iv_count);
+
+    //     if (temp < 0)
+    //     {
+    //         if (errno == EAGAIN)
+    //         {
+    //             modfd(m_epollfd, m_sockfd, EPOLLOUT);
+    //             return true;
+    //         }
+    //         unmap();
+    //         return false;
+    //     }
+
+    //     bytes_have_send += temp;
+    // bytes_to_send -= bytes_have_send;
+    if (bytes_have_send >= m_iv[0].iov_len)
     {
-        temp = writev(m_sockfd, m_iv, m_iv_count);
+        m_iv[0].iov_len = 0;
+        m_iv[1].iov_base = m_file_address + (bytes_have_send - m_write_idx);
+        m_iv[1].iov_len = bytes_to_send;
+    }
+    else
+    {
+        m_iv[0].iov_base = m_write_buf + bytes_have_send;
+        m_iv[0].iov_len = m_iv[0].iov_len - bytes_have_send;
+    }
+    struct request *req = (struct request *)malloc(sizeof(*req) + (sizeof(struct iovec) * m_iv_count));
+    req->event_type = EVENT_TYPE_WRITE;
+    req->iovec_count = m_iv_count;
+    req->client_socket = m_sockfd;
+    printf("size of m_iv_count:%d\n", sizeof(struct iovec) * m_iv_count);
+    memcpy(req->iov, m_iv, sizeof(struct iovec) * m_iv_count);
+    struct io_uring_sqe *sqe = io_uring_get_sqe(&ring);
 
-        if (temp < 0)
-        {
-            if (errno == EAGAIN)
-            {
-                modfd(m_epollfd, m_sockfd, EPOLLOUT);
-                return true;
-            }
-            unmap();
-            return false;
-        }
+    io_uring_prep_writev(sqe, req->client_socket, req->iov, req->iovec_count, 0);
+    io_uring_sqe_set_data(sqe, req);
+    printf("线程中提交了io_uring\n");
+    // io_uring_submit(&ring);
 
-        bytes_have_send += temp;
-        bytes_to_send -= temp;
-        if (bytes_have_send >= m_iv[0].iov_len)
-        {
-            m_iv[0].iov_len = 0;
-            m_iv[1].iov_base = m_file_address + (bytes_have_send - m_write_idx);
-            m_iv[1].iov_len = bytes_to_send;
-        }
-        else
-        {
-            m_iv[0].iov_base = m_write_buf + bytes_have_send;
-            m_iv[0].iov_len = m_iv[0].iov_len - bytes_have_send;
-        }
+    // write_flag = 1;
+    ringque++;
+    // printf("需要传输的字节数：%d", bytes_to_send);
+    // printf("m_write_idx：%d", m_write_idx);
+    // printf("m_file_stat.st_size：%d", m_file_stat.st_size);
 
-        if (bytes_to_send <= 0)
-        {
-            unmap();
-            modfd(m_epollfd, m_sockfd, EPOLLIN);
-
-            if (m_linger)
-            {
-                init();
-                return true;
-            }
-            else
-            {
-                return false;
-            }
-        }
+    if (1)
+    {
+        // unmap();
+        modfd(m_epollfd, m_sockfd, EPOLLIN);
+        // writable = 0;
     }
 }
 
@@ -713,5 +747,8 @@ void http_conn::process()
     {
         close_conn();
     }
+    // writable = 1;
+    write();
     modfd(m_epollfd, m_sockfd, EPOLLOUT);
+    writable = 1;
 }
