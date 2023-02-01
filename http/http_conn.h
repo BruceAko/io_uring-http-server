@@ -22,6 +22,8 @@
 #include "../lock/locker.h"
 #include "../CGImysql/sql_connection_pool.h"
 #include "../io_uring/io_uring.h"
+#include "../queue/queue.h"
+
 class http_conn
 {
 public:
@@ -113,7 +115,7 @@ public:
     int writable;
 
 private:
-        int m_sockfd;
+    int m_sockfd;
     sockaddr_in m_address;
     char m_read_buf[READ_BUFFER_SIZE];
     // int m_read_idx;

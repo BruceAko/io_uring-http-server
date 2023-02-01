@@ -28,6 +28,8 @@ const char *doc_root = "/home/bruce/Source/io_uring-http-server/root";
 map<string, string> users;
 locker m_lock;
 
+Queue<int> write_queue;
+
 extern struct io_uring ring;
 extern int ringque;
 extern int write_flag;
@@ -611,7 +613,7 @@ bool http_conn::write()
     io_uring_prep_writev(sqe, req->client_socket, req->iov, req->iovec_count, 0);
     io_uring_sqe_set_data(sqe, req);
     printf("线程中提交了io_uring\n");
-    // io_uring_submit(&ring);
+    io_uring_submit(&ring);
 
     // write_flag = 1;
     ringque++;
@@ -748,7 +750,8 @@ void http_conn::process()
         close_conn();
     }
     // writable = 1;
-    write();
-    modfd(m_epollfd, m_sockfd, EPOLLOUT);
-    writable = 1;
+    // write();
+    write_queue.push(m_sockfd);
+    // modfd(m_epollfd, m_sockfd, EPOLLOUT);
+    // writable = 1;
 }

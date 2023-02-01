@@ -18,6 +18,7 @@ int write_flag = 0;
 #include "./log/log.h"
 #include "./CGImysql/sql_connection_pool.h"
 #include "./io_uring/io_uring.h"
+#include "./queue/queue.h"
 
 #define MAX_FD 65536           // 最大文件描述符
 #define MAX_EVENT_NUMBER 10000 // 最大事件数
@@ -33,6 +34,7 @@ int write_flag = 0;
 extern int addfd(int epollfd, int fd, bool one_shot);
 extern int remove(int epollfd, int fd);
 extern int setnonblocking(int fd);
+extern Queue<int> write_queue;
 
 int ringque = 0;
 
@@ -223,109 +225,123 @@ int main(int argc, char *argv[])
         //     io_uring_submit(&ring);
         //     write_flag = 0;
         // }
+        // printf("进入队列写事件循环...\n");
+        while (write_queue.empty() != true)
+        {
+            int fd = write_queue.pop();
+            printf("开始处理fd=%d的写事件\n", fd);
+            users[fd].write();
+            printf("处理完成...\n");
+        }
 
-        int ret = io_uring_submit_and_wait(&ring, 1);
-        // int ret = io_uring_wait_cqe(&ring, &cqe);
+        // int ret = io_uring_submit_and_wait(&ring, 1);
+        // printf("wait cqe....\n");
+        int ret = io_uring_peek_cqe(&ring, &cqe);
         if (ret < 0)
         {
-            perror("io_uring_wait_cqe");
-            exit(1);
+            continue;
+            // perror("io_uring_peek_cqe");
+            // exit(1);
         }
-        unsigned head;
+        // if (cqe == NULL)
+        //{
+        // continue;
+        //}
+        // unsigned head;
         unsigned count = 0;
 
-        io_uring_for_each_cqe(&ring, head, cqe)
+        // io_uring_for_each_cqe(&ring, head, cqe)
+        //{
+        ++count;
+        struct request *req = (struct request *)cqe->user_data;
+
+        if (cqe->res < 0)
         {
-            ++count;
-            struct request *req = (struct request *)cqe->user_data;
-
-            if (cqe->res < 0)
+            if (req->event_type == EVENT_TYPE_ACCEPT)
             {
-                if (req->event_type == EVENT_TYPE_ACCEPT)
-                {
-                    // printf("接受新的客户端！,接受到的id为 %d ###########################\n", myid);
-                    add_accept_request(listenfd, &client_addr, &client_addr_len);
-                }
-                fprintf(stderr, "Async request failed: %s for event: %d,client socket is %d\n",
-                        strerror(-cqe->res), req->event_type, req->client_socket);
-                // continue;
-                exit(1);
-            }
-
-            switch (req->event_type)
-            {
-            case EVENT_TYPE_ACCEPT:
-                printf("####################接受新的客户端！###########################\n");
+                // printf("接受新的客户端！,接受到的id为 %d ###########################\n", myid);
                 add_accept_request(listenfd, &client_addr, &client_addr_len);
-                users[cqe->res].init(cqe->res, client_addr);
-                // printf("第%d次accept\n", ++accept);
-                // add_read_request(cqe->res);
-                users[cqe->res].read_once();
-                printf("从fd%d读数据\n", cqe->res);
-                free(req);
-                break;
-            case EVENT_TYPE_READ:
-                if (cqe->res == 0)
-                {
-                    fprintf(stderr, "Empty request!\n");
-                    close(req->client_socket);
-                    break;
-                }
-                users[req->client_socket].m_read_idx += cqe->res;
-                printf("读到%d字节数据\n", cqe->res);
-                pool->append(users + req->client_socket);
-                while (users[req->client_socket].writable == 0)
-                {
-                }
-                io_uring_submit(&ring);
-                users[req->client_socket].writable = 0;
-                // add_read_request(req->client_socket);
-                // free(req->iov[0].iov_base);
-                // users[req->client_socket].write();
-                break;
-            case EVENT_TYPE_WRITE:
-                // add_accept_request(listenfd, &client_addr, &client_addr_len, myid++);
-                printf("需要传输的字节数：%d\n", users[req->client_socket].bytes_to_send);
-                printf("传输的字节数：%d\n", cqe->res);
-                if (cqe->res < users[req->client_socket].bytes_to_send)
-                {
-                    users[req->client_socket].bytes_to_send -= cqe->res;
-                    users[req->client_socket].bytes_have_send += cqe->res;
-                    users[req->client_socket].write();
-                    io_uring_submit(&ring);
-                    break;
-                }
-                // for (int i = 0; i < req->iovec_count; i++)
-                // {
-                //     free(req->iov[i].iov_base);
-                // }
-                // printf("监听fd%d\n", req->client_socket);
-                if (users[req->client_socket].m_linger == true)
-                {
-                    users[req->client_socket].unmap();
-                    // users[req->client_socket].init();
-                    // users[req->client_socket].read_once();
-                    printf("keep alive\n");
-                    http_conn::m_user_count--;
-                    close(req->client_socket);
-                    //  return true;
-                }
-                else
-                {
-                    users[req->client_socket].unmap();
-                    printf("not keep alive\n");
-                    http_conn::m_user_count--;
-                    close(req->client_socket);
-                    // return false;
-                }
-                // add_read_request(req->client_socket);
-                free(req);
+            }
+            fprintf(stderr, "Async request failed: %s for event: %d,client socket is %d\n",
+                    strerror(-cqe->res), req->event_type, req->client_socket);
+            // continue;
+            exit(1);
+        }
+
+        switch (req->event_type)
+        {
+        case EVENT_TYPE_ACCEPT:
+            printf("####################接受新的客户端！###########################\n");
+            add_accept_request(listenfd, &client_addr, &client_addr_len);
+            users[cqe->res].init(cqe->res, client_addr);
+            // printf("第%d次accept\n", ++accept);
+            // add_read_request(cqe->res);
+            users[cqe->res].read_once();
+            printf("从fd%d读数据\n", cqe->res);
+            free(req);
+            break;
+        case EVENT_TYPE_READ:
+            if (cqe->res == 0)
+            {
+                fprintf(stderr, "Empty request!\n");
+                close(req->client_socket);
                 break;
             }
-            /* Mark this request as processed */
-            // io_uring_cqe_seen(&ring, cqe);
+            users[req->client_socket].m_read_idx += cqe->res;
+            printf("读到%d字节数据\n", cqe->res);
+            pool->append(users + req->client_socket);
+            // while (users[req->client_socket].writable == 0)
+            //{
+            // }
+            // io_uring_submit(&ring);
+            // users[req->client_socket].writable = 0;
+            // add_read_request(req->client_socket);
+            // free(req->iov[0].iov_base);
+            // users[req->client_socket].write();
+            break;
+        case EVENT_TYPE_WRITE:
+            // add_accept_request(listenfd, &client_addr, &client_addr_len, myid++);
+            printf("需要传输的字节数：%d\n", users[req->client_socket].bytes_to_send);
+            printf("传输的字节数：%d\n", cqe->res);
+            if (cqe->res < users[req->client_socket].bytes_to_send)
+            {
+                users[req->client_socket].bytes_to_send -= cqe->res;
+                users[req->client_socket].bytes_have_send += cqe->res;
+                users[req->client_socket].write();
+                // io_uring_submit(&ring);
+                break;
+            }
+            // for (int i = 0; i < req->iovec_count; i++)
+            // {
+            //     free(req->iov[i].iov_base);
+            // }
+            // printf("监听fd%d\n", req->client_socket);
+            if (users[req->client_socket].m_linger == true)
+            {
+                users[req->client_socket].unmap();
+                // users[req->client_socket].init();
+                // users[req->client_socket].read_once();
+                printf("keep alive\n");
+                http_conn::m_user_count--;
+                close(req->client_socket);
+                //  return true;
+            }
+            else
+            {
+                users[req->client_socket].unmap();
+                printf("not keep alive\n");
+                http_conn::m_user_count--;
+                close(req->client_socket);
+                // return false;
+            }
+            // add_read_request(req->client_socket);
+            free(req);
+            break;
         }
-        io_uring_cq_advance(&ring, count);
+        /* Mark this request as processed */
+        io_uring_cqe_seen(&ring, cqe);
+        //}
+        // io_uring_cq_advance(&ring, count);
         ringque -= count;
         printf("目前io_uring队列数量： %d\n", ringque);
         if (ringque > 8100)
