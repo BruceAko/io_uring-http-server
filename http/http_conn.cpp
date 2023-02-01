@@ -561,11 +561,9 @@ bool http_conn::write()
     // printf("m_write_idx：%d", m_write_idx);
     // printf("m_file_stat.st_size：%d", m_file_stat.st_size);
 
-    if (1)
-    {
-        // unmap();
-        // modfd(m_epollfd, m_sockfd, EPOLLIN);
-    }
+    // unmap();
+    // modfd(m_epollfd, m_sockfd, EPOLLIN);
+    return true;
 }
 
 bool http_conn::add_response(const char *format, ...)
@@ -589,7 +587,7 @@ bool http_conn::add_status_line(int status, const char *title)
 {
     return add_response("%s %d %s\r\n", "HTTP/1.1", status, title);
 }
-bool http_conn::add_headers(int content_len)
+void http_conn::add_headers(int content_len)
 {
     add_content_length(content_len);
     add_linger();
