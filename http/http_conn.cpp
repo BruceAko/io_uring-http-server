@@ -32,7 +32,7 @@ Queue<int> write_queue;
 
 extern struct io_uring ring;
 extern int ringque;
-extern int write_flag;
+
 void http_conn::initmysql_result(connection_pool *connPool)
 {
     // 先从连接池中取一个连接
@@ -612,7 +612,6 @@ bool http_conn::write()
     printf("线程中提交了io_uring\n");
     io_uring_submit(&ring);
 
-    // write_flag = 1;
     ringque++;
     // printf("需要传输的字节数：%d", bytes_to_send);
     // printf("m_write_idx：%d", m_write_idx);

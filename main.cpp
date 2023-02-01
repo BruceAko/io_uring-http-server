@@ -9,8 +9,6 @@
 #include <cassert>
 #include <sys/epoll.h>
 
-int write_flag = 0;
-
 #include "./lock/locker.h"
 #include "./threadpool/threadpool.h"
 #include "./timer/lst_timer.h"
@@ -207,25 +205,10 @@ int main(int argc, char *argv[])
     struct sockaddr_in client_addr;
     socklen_t client_addr_len = sizeof(client_addr);
     add_accept_request(listenfd, &client_addr, &client_addr_len);
-    // add_accept_request(listenfd, &client_addr, &client_addr_len);
-    //  add_accept_request(listenfd, &client_addr, &client_addr_len);
-    //             add_accept_request(listenfd, &client_addr, &client_addr_len);
-    //             add_accept_request(listenfd, &client_addr, &client_addr_len);
-    //             add_accept_request(listenfd, &client_addr, &client_addr_len);
-    //                 main loop
-    // struct __kernel_timespec ts;
-    // ts.tv_nsec = 1000;
-    // ts.tv_sec = 1;
-    // sigset_t sigset;
-    // sigfillset(&sigset);
+
+    // main loop
     while (!stop_server)
     {
-        // if (write_flag)
-        // {
-        //     io_uring_submit(&ring);
-        //     write_flag = 0;
-        // }
-        // printf("进入队列写事件循环...\n");
         while (write_queue.empty() != true)
         {
             int fd = write_queue.pop();
