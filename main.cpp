@@ -304,11 +304,11 @@ int main(int argc, char *argv[])
         // io_uring_cq_advance(&ring, count);
         ringque -= count;
         // printf("目前io_uring队列数量： %d\n", ringque);
-        if (ringque > 8100)
-        {
-            // printf("ringque > 8100\n");
-            //  exit(1);
-        }
+        // if (ringque > 8100)
+        // {
+        // printf("ringque > 8100\n");
+        //  exit(1);
+        //}
         //         int number = epoll_wait(epollfd, events, MAX_EVENT_NUMBER, -1);
         //         if (number < 0 && errno != EINTR)
         //         {
